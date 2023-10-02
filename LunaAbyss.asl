@@ -116,6 +116,7 @@ init
     current.camTarget = "";
     current.world = "";
     current.checkpointname = "";
+    current.camTargetCine = "";
 }
 
 update
@@ -128,6 +129,7 @@ update
 
     // Get the Name of the current target for the CameraManager
     current.camTarget = vars.FNameToString(vars.Watchers["camViewTargetFName"].Current);
+    current.camTargetCine = current.camTarget.Substring(0, 15);
 
     // Get the name of the current checkpoint
     if (!String.IsNullOrWhiteSpace(vars.Watchers["CurrentCheckpointName"].Current)) current.checkpointname = vars.Watchers["CurrentCheckpointName"].Current;
@@ -135,19 +137,19 @@ update
         if(settings["Camera"]) 
     {
         vars.SetTextComponent("Camera Target:",current.camTarget.ToString());
-        if (old.camTarget != current.camTarget) print("Camera Target:" + current.camTarget.ToString());
+        if (old.camTarget != current.camTarget) print("Camera Target:" + current.camTarget.ToString() + " & Cine: " + current.camTargetCine.ToString());
     }
 
         if(settings["Map"]) 
     {
         vars.SetTextComponent("Map:",current.world.ToString());
-        if (old.world != current.world) print("Camera Target:" + current.world.ToString());
+        if (old.world != current.world) print("Map:" + current.world.ToString());
     }
 
         if(settings["Checkpoint"] && current.world != "MainMenuMap") 
     {
         vars.SetTextComponent("Checkpoint:",current.checkpointname.ToString());
-        if (old.checkpointname != current.checkpointname) print("Camera Target:" + current.checkpointname.ToString());
+        if (old.checkpointname != current.checkpointname) print("Checkpoint:" + current.checkpointname.ToString());
     }
 
 //DEBUG CODE
@@ -233,6 +235,12 @@ split
     if (settings["Second Arena"] && old.checkpointname == "SecondArenaStart" && current.checkpointname == "AfterShieldbreakerHardCombat")
     {
         print("Split 11");
+        return true;
+    }
+
+        if (settings["Ending Split"] && current.checkpointname == "SecondArenaEnd" && old.camTargetCine != "CineCameraActor" && current.camTargetCine == "CineCameraActor")
+    {
+        print("thefuck?");
         return true;
     }
 }
