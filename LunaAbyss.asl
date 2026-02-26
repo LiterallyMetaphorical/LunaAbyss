@@ -1,251 +1,209 @@
-// Shoutouts to Micrologist for all of the sig scan related shenanigans in this ASL (taken from SPRAWL.) Not sure why loading didnt work, so that's pointer based for now.
-//Luna Abyss ASL Script made by Nikoheart and Meta
-state("LunaAbyss-Win64-Shipping")
-{
-    bool loading : 0x046AA160, 0xD18, 0x10, 0x1A0, 0x2A0, 0xD0, 0xFC4;
-}
+state("LunaAbyss-Win64-Shipping"){}
 
 startup
 {
-    if (timer.CurrentTimingMethod == TimingMethod.RealTime)
+	Assembly.Load(File.ReadAllBytes("Components/uhara9")).CreateInstance("Main");
+	vars.Uhara.AlertLoadless();
+	vars.CompletedSplits = new List<string>();
+
+    #region TextComponent
+		vars.lcCache = new Dictionary<string, LiveSplit.UI.Components.ILayoutComponent>();
+		vars.SetText = (Action<string, object>)((text1, text2) =>
+		{
+			const string FileName = "LiveSplit.Text.dll";
+			LiveSplit.UI.Components.ILayoutComponent lc;
+
+			if (!vars.lcCache.TryGetValue(text1, out lc))
+			{
+				lc = timer.Layout.LayoutComponents.Reverse().Cast<dynamic>()
+					.FirstOrDefault(llc => llc.Path.EndsWith(FileName) && llc.Component.Settings.Text1 == text1)
+					?? LiveSplit.UI.Components.ComponentManager.LoadLayoutComponent(FileName, timer);
+
+				vars.lcCache.Add(text1, lc);
+			}
+
+			if (!timer.Layout.LayoutComponents.Contains(lc)) timer.Layout.LayoutComponents.Add(lc);
+			dynamic tc = lc.Component;
+			tc.Settings.Text1 = text1;
+			tc.Settings.Text2 = text2.ToString();
+		});
+		vars.RemoveText = (Action<string>)(text1 =>
+		{
+			LiveSplit.UI.Components.ILayoutComponent lc;
+			if (vars.lcCache.TryGetValue(text1, out lc))
+			{
+				timer.Layout.LayoutComponents.Remove(lc);
+				vars.lcCache.Remove(text1);
+			}
+		});
+	#endregion
+
+    dynamic[,] _settings =
     {
-        var timingMessage = MessageBox.Show (
-            "This game uses Time without Loads (Game Time) as the main timing method.\n"+
-            "LiveSplit is currently set to show Real Time (RTA).\n"+
-            "Would you like to set the timing method to Game Time?",
-            "LiveSplit | Luna Abyss",
-            MessageBoxButtons.YesNo,MessageBoxIcon.Question
-        );
-
-        if (timingMessage == DialogResult.Yes)
-        {
-            timer.CurrentTimingMethod = TimingMethod.GameTime;
-        }
-    }
-
-    	//creates text components for variable information
-	vars.SetTextComponent = (Action<string, string>)((id, text) =>
-	{
-	        var textSettings = timer.Layout.Components.Where(x => x.GetType().Name == "TextComponent").Select(x => x.GetType().GetProperty("Settings").GetValue(x, null));
-	        var textSetting = textSettings.FirstOrDefault(x => (x.GetType().GetProperty("Text1").GetValue(x, null) as string) == id);
-	        if (textSetting == null)
-	        {
-	        var textComponentAssembly = Assembly.LoadFrom("Components\\LiveSplit.Text.dll");
-	        var textComponent = Activator.CreateInstance(textComponentAssembly.GetType("LiveSplit.UI.Components.TextComponent"), timer);
-	        timer.Layout.LayoutComponents.Add(new LiveSplit.UI.Components.LayoutComponent("LiveSplit.Text.dll", textComponent as LiveSplit.UI.Components.IComponent));
-	
-	        textSetting = textComponent.GetType().GetProperty("Settings", BindingFlags.Instance | BindingFlags.Public).GetValue(textComponent, null);
-	        textSetting.GetType().GetProperty("Text1").SetValue(textSetting, id);
-	        }
-	
-	        if (textSetting != null)
-	        textSetting.GetType().GetProperty("Text2").SetValue(textSetting, text);
-    	});
-
-    //Parent setting
-	settings.Add("Variable Information", true, "Variable Information");
-	//Child settings that will sit beneath Parent setting
-	settings.Add("Camera", true, "Camera", "Variable Information");
-    settings.Add("Map", true, "Map", "Variable Information");
-    settings.Add("Checkpoint", true, "Checkpoint", "Variable Information");
-
-    //Parent setting
-	settings.Add("Checkpoint Splits", true, "Checkpoint Splits");
-	//Child settings that will sit beneath Parent setting
-    settings.Add("Sorrows Entrance", true, "Sorrows Entrance", "Checkpoint Splits");
-    settings.Add("Sorrows Canyon", true, "Sorrows Canyon", "Checkpoint Splits");
-    settings.Add("First Arena", true, "First Arena", "Checkpoint Splits");
-    settings.Add("Oops", true, "Oops", "Checkpoint Splits");
-    settings.Add("The Waif", true, "The Waif", "Checkpoint Splits");
-    settings.Add("Sorrow Tower Climb I", true, "Sorrow Tower Climb I", "Checkpoint Splits");
-    settings.Add("Sorrow Tower Climb II", true, "Sorrow Tower Climb II", "Checkpoint Splits");
-    settings.Add("Arena Bridge", true, "Arena Bridge", "Checkpoint Splits");
-    settings.Add("Shieldbreaker", true, "Shieldbreaker", "Checkpoint Splits");
-    settings.Add("Shieldbreaker Ravine", true, "Shieldbreaker Ravine", "Checkpoint Splits");
-    settings.Add("Second Arena", true, "Second Arena", "Checkpoint Splits");
-    settings.Add("Ending Split", true, "Ending Split", "Checkpoint Splits");
+        { "CheckpointSplits", true, "Checkpoint Splits", null },
+            { "SorrowsCanyon",                  true, "Sorrows Entrance", "CheckpointSplits" },
+            { "FirstArenaStart",                true, "Sorrows Canyon", "CheckpointSplits" },
+            { "FirstArenaEnd",                  true, "First Arena", "CheckpointSplits" },
+            { "TheWaif",                        true, "Oops", "CheckpointSplits" },
+            { "SorrowTowerClimb",               true, "The Waif", "CheckpointSplits" },
+            { "Tower",                          true, "Sorrow Tower Climb I", "CheckpointSplits" },
+            { "ArenaBridge",                    true, "Sorrow Tower Climb II", "CheckpointSplits" },
+            { "BeforeShieldbreaker",            true, "Arena Bridge", "CheckpointSplits" },
+            { "ShieldBreakerRavine",            true, "Shieldbreaker", "CheckpointSplits" },
+            { "SecondArenaStart",               true, "Shieldbreaker Ravine", "CheckpointSplits" },
+            { "AfterShieldbreakerHardCombat",   true, "Second Arena", "CheckpointSplits" },
+            { "SecondArenaEnd",                 true, "Celebrant Boss", "CheckpointSplits" },
+            { "HydraulicWallButton",            true, "Second Arena End", "CheckpointSplits" },
+            { "WardenEntrance",                 true, "(Temp) Hydraulic Wall Button", "CheckpointSplits" },
+            { "RegretPipes",                    true, "(Temp) Warden Entrance", "CheckpointSplits" },
+            { "PlacentalSteps",                 true, "(Temp) Regret Pipes", "CheckpointSplits" },
+            { "SorrowsEndingSplit",             true, "Sorrows Canyon End", "CheckpointSplits" },
+            { "ScourgeRavine",                  true, "Scourge Ravine", "CheckpointSplits" },
+            { "MeadowsCrater",                  true, "Meadows Crater", "CheckpointSplits" },
+            { "PostSniperTutorial",             true, "Monarchs Lance", "CheckpointSplits" },
+            { "CraterPathway",                  true, "Crater Pathway", "CheckpointSplits" },
+            { "ReactorEntrance",                true, "Reactor Entrance", "CheckpointSplits" },
+            { "MeadowsReactorClimb",            true, "Meadows Reactor Climb", "CheckpointSplits" },
+            { "MeadowsReactor",                 true, "Meadows Reactor", "CheckpointSplits" },
+            { "MeadowsBoss",                    true, "Meadows Boss Run Up", "CheckpointSplits" },
+            { "ScourgeEndingSplit",             true, "Scourge Crater End", "CheckpointSplits" },
+        { "Debug", false, "Debug", null },
+            { "GSync",      false, "GSync", "Debug" },
+            { "World",      false, "World", "Debug" },
+            { "Checkpoint", true, "Checkpoint", "Debug" },
+            { "CamTarget", true, "CamTarget", "Debug" },
+    };
+    
+    vars.Uhara.Settings.Create(_settings);
 }
 
 init
 {
-    // Scanning the MainModule for static pointers to GSyncLoadCount, UWorld, UEngine and FNamePool
-    var scn = new SignatureScanner(game, game.MainModule.BaseAddress, game.MainModule.ModuleMemorySize);
-    var uWorldTrg = new SigScanTarget(8, "0F 2E ?? 74 ?? 48 8B 1D ?? ?? ?? ?? 48 85 DB 74") { OnFound = (p, s, ptr) => ptr + 0x4 + game.ReadValue<int>(ptr) };
-    var uWorld = scn.Scan(uWorldTrg);
-    var gameEngineTrg = new SigScanTarget(3, "48 39 35 ?? ?? ?? ?? 0F 85 ?? ?? ?? ?? 48 8B 0D") { OnFound = (p, s, ptr) => ptr + 0x4 + game.ReadValue<int>(ptr) };
-    var gameEngine = scn.Scan(gameEngineTrg);
-    var fNamePoolTrg = new SigScanTarget(13, "89 5C 24 ?? 89 44 24 ?? 74 ?? 48 8D 15") { OnFound = (p, s, ptr) => ptr + 0x4 + game.ReadValue<int>(ptr) };
-    var fNamePool = scn.Scan(fNamePoolTrg);
+    vars.Utils = vars.Uhara.CreateTool("UnrealEngine", "Utils");
+	vars.Events = vars.Uhara.CreateTool("UnrealEngine", "Events");
 
-    // Throwing in case any base pointers can't be found (yet, hopefully)
-    if(uWorld == IntPtr.Zero || gameEngine == IntPtr.Zero || fNamePool == IntPtr.Zero)
-    {
-        throw new Exception("One or more base pointers not found - retrying");
-    }
+    if (vars.Utils.GEngine != IntPtr.Zero) vars.Uhara.Log("GEngine found at " + vars.Utils.GEngine.ToString("X"));
+    if (vars.Utils.GWorld != IntPtr.Zero) vars.Uhara.Log("GWorld found at " + vars.Utils.GWorld.ToString("X")); 
+    if (vars.Utils.FNames != IntPtr.Zero) vars.Uhara.Log("FNames found at " + vars.Utils.FNames.ToString("X"));
 
-	vars.Watchers = new MemoryWatcherList
-    {
-        // UWorld.Name
-        new MemoryWatcher<ulong>(new DeepPointer(uWorld, 0x18)) { Name = "worldFName"},
-        // GameEngine.GameInstance.LocalPlayers[0].PlayerController.PlayerCameraManager.ViewTarget.Target.Name
-        new MemoryWatcher<ulong>(new DeepPointer(gameEngine, 0xD28, 0x38, 0x0, 0x30, 0x2B8, 0xE90, 0x18)) { Name = "camViewTargetFName"},
-        // GameEngine.Gameinstance.LocalPlayers[0].PlayerController.MyHUD.PawnSpecificWidgets[0].UI_LevelEndScreen
-        //new MemoryWatcher<IntPtr>(new DeepPointer(gameEngine, 0xD28, 0x38, 0x0, 0x30, 0x2B0, 0x310, 0x0, 0x2E0)) { Name = "levelEndScreenPtr"},
+	vars.Resolver.Watch<int>("GSync", vars.Utils.GSync);
+    vars.Resolver.Watch<uint>("GWorldName", vars.Utils.GWorld, 0x18);
+    vars.Resolver.WatchString("CheckpointName", vars.Utils.GEngine, 0xD28, 0x378, 0x0);
+    vars.Resolver.WatchString("CamTargetName", vars.Utils.GEngine, 0xD28, 0x38, 0x0, 0x30, 0x2B8, 0xE90, 0x18);
+    vars.Resolver.Watch<float>("xVel", vars.Utils.GEngine, 0xD28, 0x38, 0x0, 0x30, 0x260, 0x288, 0xC4);
 
-        new StringWatcher(new DeepPointer(gameEngine, 0xD28, 0x2F0,0x0),500) { Name = "CurrentCheckpointName"},
-    };
+	vars.Events.FunctionFlag("FMFadeToWidget", "BP_FadeManager_C", "BP_FadeManager_C", "OnFadeToWidget");
+    vars.Events.FunctionFlag("FMCutToBlack", "BP_FadeManager_C", "BP_FadeManager_C", "OnCutToBlack");
+    vars.Events.FunctionFlag("FMFadeFromWidget", "BP_FadeManager_C", "BP_FadeManager_C", "OnFadeFromWidget");
+    vars.Events.FunctionFlag("DemoSlate", "WBP_Demo_EndSlate_C", "WBP_Demo_EndSlate_C", "ExecuteUbergraph_WBP_Demo_EndSlate");
+    // vars.Events.FunctionFlag("StartDemo1", "WBP_Splashscreen_VS_C", "WBP_Splashscreen_VS_C", "StartDemo01");
+    vars.Events.FunctionFlag("EnteredAbyss", "CAN_Sorrow_GEO_C", "CAN_Sorrow_GEO_C", "EnteredAbyss");
+    vars.Events.FunctionFlag("EndOfDemoSorrow", "CAN_Sorrow_GEO_C", "CAN_Sorrow_GEO_C", "End of Demo Event");
+    vars.Events.FunctionFlag("EndOfDemoScourge", "MED_Crater_GEO_C", "MED_Crater_GEO_C", "End of Demo Event");
 
-    // Translating FName to String, this *could* be cached
-    vars.FNameToString = (Func<ulong, string>)(fName =>
-    {
-        var number   = (fName & 0xFFFFFFFF00000000) >> 0x20;
-        var chunkIdx = (fName & 0x00000000FFFF0000) >> 0x10;
-        var nameIdx  = (fName & 0x000000000000FFFF) >> 0x00;
-        var chunk = game.ReadPointer(fNamePool + 0x10 + (int)chunkIdx * 0x8);
-        var nameEntry = chunk + (int)nameIdx * 0x2;
-        var length = game.ReadValue<short>(nameEntry) >> 6;
-        var name = game.ReadString(nameEntry + 0x2, length);
-        return number == 0 ? name : name + "_" + number;
-    });
+    // vars.Events.FunctionFlag("CheckPointEnterPortal", "BP_Checkpoint_C", "BP_Checkpoint_C", "OnEnterPortal");
+    // vars.Events.FunctionFlag("CheckpointHalfwayStart", "BP_CheckPoint_Halfway_C", "BP_CheckPoint_Halfway_C", "Timeline_0__UpdateFunc");
 
-    vars.Watchers.UpdateAll(game);
+    vars.Loading = false;
+    current.StartReady = false;
+    current.World = "";
+    current.CamTarget = "";
+    current.CheckpointName = "";
 
-    current.world = old.world = vars.FNameToString(vars.Watchers["worldFName"].Current);
-    
-    //helps with null values throwing errors
-    current.camTarget = "";
-    current.world = "";
-    current.checkpointname = "";
-    current.camTargetCine = "";
+    #region Text Component
+		vars.SetTextIfEnabled = (Action<string, object>)((text1, text2) =>
+		{
+			if (settings[text1]) vars.SetText(text1, text2); 
+			else vars.RemoveText(text1);
+		});
+	#endregion
 }
 
 update
 {
-    vars.Watchers.UpdateAll(game);
+    vars.Uhara.Update();
 
-    // Get the current world name as string, only if *UWorld isnt null
-    var worldFName = vars.Watchers["worldFName"].Current;
-    current.world = worldFName != 0x0 ? vars.FNameToString(worldFName) : old.world;
+    var world = vars.Utils.FNameToString(current.GWorldName);
+	if (!string.IsNullOrEmpty(world) && world != "None") current.World = world;
 
-    // Get the Name of the current target for the CameraManager
-    current.camTarget = vars.FNameToString(vars.Watchers["camViewTargetFName"].Current);
-    current.camTargetCine = current.camTarget.Substring(0, 15);
+    var ctFName = vars.Utils.FNameToString(current.CamTargetName);
+	if (!string.IsNullOrEmpty(ctFName) && ctFName != "None") current.CamTarget = ctFName;
+    if (old.CamTarget != current.CamTarget) vars.Uhara.Log("CamTarget: " + current.CamTarget);
 
-    // Get the name of the current checkpoint
-    if (!String.IsNullOrWhiteSpace(vars.Watchers["CurrentCheckpointName"].Current)) current.checkpointname = vars.Watchers["CurrentCheckpointName"].Current;
+	if (vars.Resolver.CheckFlag("FMFadeToWidget")) vars.Loading = true;
+    if (vars.Resolver.CheckFlag("FMCutToBlack")) vars.Loading = true;
+	if (vars.Resolver.CheckFlag("FMFadeFromWidget")) vars.Loading = false;
 
-        if(settings["Camera"]) 
+    if (old.CheckpointName != current.CheckpointName) vars.Uhara.Log("Checkpoint Name: " + current.CheckpointName);
+
+    #region Debug Prints
+	if (settings["Debug"])
+	{
+		if (old.GSync != current.GSync) {vars.Uhara.Log("GSync: " + old.GSync + " -> " + current.GSync); vars.SetTextIfEnabled("GSync",current.GSync);}
+        if (old.World != current.World) {vars.Uhara.Log("World: " + old.World + " -> " + current.World); vars.SetTextIfEnabled("World",current.World);}
+        if (old.CheckpointName != current.CheckpointName) {vars.Uhara.Log("Checkpoint: " + old.CheckpointName + " -> " + current.CheckpointName); vars.SetTextIfEnabled("Checkpoint",current.CheckpointName);}
+        if (old.CamTarget != current.CamTarget) {vars.Uhara.Log("CamTarget: " + old.CamTarget + " -> " + current.CamTarget); vars.SetTextIfEnabled("CamTarget",current.CamTarget);}
+	}
+	#endregion
+
+    if (old.World == "MainMenuMap" && current.World == "Abyss_PERSISTENT")
     {
-        vars.SetTextComponent("Camera Target:",current.camTarget.ToString());
-        if (old.camTarget != current.camTarget) print("Camera Target:" + current.camTarget.ToString() + " & Cine: " + current.camTargetCine.ToString());
+        current.StartReady = true;
+        vars.Uhara.Log("Start Ready? --> " + current.StartReady);
     }
+}
 
-        if(settings["Map"]) 
-    {
-        vars.SetTextComponent("Map:",current.world.ToString());
-        if (old.world != current.world) print("Map:" + current.world.ToString());
-    }
-
-        if(settings["Checkpoint"] && current.world != "MainMenuMap") 
-    {
-        vars.SetTextComponent("Checkpoint:",current.checkpointname.ToString());
-        if (old.checkpointname != current.checkpointname) print("Checkpoint:" + current.checkpointname.ToString());
-    }
-
-//DEBUG CODE
-    //print(current.loading.ToString());
-    //print("Loaded Map = " + current.world.ToString());
-    //print("Camera Target = " + current.camTarget.ToString());
-    //print(modules.First().ModuleMemorySize.ToString());
+onStart
+{
+	vars.CompletedSplits.Clear();
+    current.StartReady = false;
 }
 
 start
 {
-    if (old.world == "MainMenuMap" && current.world == "Abyss_PERSISTENT")
+    if (current.StartReady == true && current.xVel != 0 && current.xVel != old.xVel)
     {
-        timer.IsGameTimePaused = true;
         return true;
     }
-    //return current.camTarget == "BP_Fawkes_Character_C_2147435681" && old.camTarget != current.camTarget;
 }
 
 split
 {
-    //return current.camTarget == "CineCameraActor_2147450557" && old.camTarget != current.camTarget; // just for testing purposes
-    if (settings["Sorrows Entrance"] && old.checkpointname == "SorrowsEntrance" && current.checkpointname == "SorrowsCanyon")
+
+    if (old.CheckpointName != current.CheckpointName && settings.ContainsKey(current.CheckpointName) && settings[current.CheckpointName] && !vars.CompletedSplits.Contains(current.CheckpointName))
     {
-        print("Split 1");
+        vars.CompletedSplits.Add(current.CheckpointName);
+        print("Split: " + vars.Utils.FNameToString(current.CheckpointName));
         return true;
     }
 
-    if (settings["Sorrows Canyon"] && old.checkpointname == "SorrowsCanyon" && current.checkpointname == "FirstArenaStart")
+    if (vars.Resolver.CheckFlag("EndOfDemoSorrow"))
     {
-        print("Split 2");
-        return true;
+        if (settings["SorrowsEndingSplit"] && !vars.CompletedSplits.Contains("SorrowsEndingSplit"))
+        {
+            vars.CompletedSplits.Add("SorrowsEndingSplit");
+            print("Split: Sorrow Ending Split");
+            return true;
+        }
     }
 
-    if (settings["First Arena"] && old.checkpointname == "FirstArenaStart" && current.checkpointname == "FirstArenaEnd")
+    if (vars.Resolver.CheckFlag("EndOfDemoScourge"))
     {
-        print("Split 3");
-        return true;
-    }
-
-        if (settings["Oops"] && old.checkpointname == "FirstArenaEnd" && current.checkpointname == "TheWaif")
-    {
-        print("Split 4");
-        return true;
-    }
-
-    if (settings["The Waif"] && old.checkpointname == "TheWaif" && current.checkpointname == "SorrowTowerClimb")
-    {
-        print("Split 5");
-        return true;
-    }
-
-    if (settings["Sorrow Tower Climb I"] && old.checkpointname == "SorrowTowerClimb" && current.checkpointname == "Tower")
-    {
-        print("Split 6");
-        return true;
-    }
-
-    if (settings["Sorrow Tower Climb II"] && old.checkpointname == "SorrowTowerPuzzleEnd" && current.checkpointname == "ArenaBridge")
-    {
-        print("Split 7");
-        return true;
-    }
-
-    if (settings["Arena Bridge"] && old.checkpointname == "ArenaBridge" && current.checkpointname == "BeforeShieldbreaker")
-    {
-        print("Split 8");
-        return true;
-    }
-
-    if (settings["Shieldbreaker"] && old.checkpointname == "Shieldbreaker" && current.checkpointname == "ShieldBreakerRavine")
-    {
-        print("Split 9");
-        return true;
-    }
-
-    if (settings["Shieldbreaker Ravine"] && old.checkpointname == "FirstHealthChest" && current.checkpointname == "SecondArenaStart")
-    {
-        print("Split 10");
-        return true;
-    }
-
-    if (settings["Second Arena"] && old.checkpointname == "SecondArenaStart" && current.checkpointname == "AfterShieldbreakerHardCombat")
-    {
-        print("Split 11");
-        return true;
-    }
-
-        if (settings["Ending Split"] && current.checkpointname == "SecondArenaEnd" && old.camTargetCine != "CineCameraActor" && current.camTargetCine == "CineCameraActor")
-    {
-        print("thefuck?");
-        return true;
+        if (settings["ScourgeEndingSplit"] && !vars.CompletedSplits.Contains("ScourgeEndingSplit"))
+        {
+            vars.CompletedSplits.Add("ScourgeEndingSplit");
+            print("Split: Scourge Ending Split");
+            return true;
+        }
     }
 }
 
 isLoading
 {
-    return current.loading;
+    return vars.Loading || current.GSync != 0;
+}
+
+onReset
+{
+	vars.CompletedSplits.Clear();
 }
